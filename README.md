@@ -104,9 +104,13 @@ Reported metrics include:
 
 ## Repository Structure
 ├── app.py # Streamlit dashboard (interactive EWS)
+
 ├── JSTdatasetR6.xlsx 
+
 ├── requirements.txt 
+
 ├── 240377687_Nakshatra_Aditya.ipynb
+
 └── README.md
 
 ---
