@@ -109,7 +109,7 @@ Reported metrics include:
 
 ├── requirements.txt 
 
-├── 240377687_Nakshatra_Aditya.ipynb
+├── 240377687_Nakshatra_Aditya(Jupyter).ipynb
 
 └── README.md
 
