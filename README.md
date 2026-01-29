@@ -1,85 +1,106 @@
 # Simulation Tool for Economic Crisis Prediction  
-*A Financial Crisis Early Warning System (EWS) for the United States and the United Kingdom (1870–2020).*
+*A Financial Crisis Early Warning System (EWS) for the United States and the United Kingdom (1870–2020)*
 
-This repository contains a simulation-based Early Warning System designed to estimate the probability of systemic banking crises using long-run macro-financial indicators and market-based behavioural proxies. The project is aligned with policy-style monitoring: the goal is to generate timely warning signals ahead of crisis events, not to predict exact crisis years with certainty.
+This repository contains a **policy-oriented simulation tool** for estimating the probability of systemic banking crises using long-run macro-financial indicators and market-based behavioural proxies. The project is developed as part of an **MSc Data Science dissertation** and is designed to reflect how Early Warning Systems (EWS) are used in real macroprudential surveillance—to flag periods of elevated systemic risk rather than to predict exact crisis years with certainty.
 
 ---
 
 ## Project Overview
 
-Financial crises are rare but highly disruptive. This project frames crisis prediction as a forward-looking supervised classification task. Using annual historical data, the system produces a crisis-risk score each year and converts it into alerts under a constrained *alert budget* (e.g., flag only the top 20% highest-risk years), reflecting the operational reality that policymakers can only investigate a limited number of warnings.
+Financial crises are rare, endogenous, and highly disruptive. This project formulates crisis prediction as a **forward-looking supervised classification problem**, where each year is assigned a probability of a crisis occurring within a fixed forecast horizon.
+
+Rather than maximising raw accuracy, the system emphasises **operational usefulness**:
+- timely detection of rising systemic risk,
+- constrained alerting under limited supervisory capacity,
+- interpretability and robustness suitable for policy environments.
+
+Alerts are generated using an **alert budget** (e.g. flag only the top 20% highest-risk years), reflecting the reality that policymakers cannot respond to every warning signal.
+
+---
+
+## Key Design Principles
 
 The workflow prioritises:
-- **Realistic, time-consistent validation** (rolling-origin evaluation)
-- **Leakage-safe preprocessing** (no use of future information)
-- **Rare-event evaluation metrics** (event-based crisis capture, PR-AUC, calibration)
-- **Interpretability** (SHAP-style feature attribution)
+
+- **Time-consistent validation**  
+  No future information is used in preprocessing, scaling, or threshold selection.
+
+- **Leakage-safe feature engineering**  
+  All transformations respect the information set available at each point in time.
+
+- **Rare-event evaluation**  
+  Performance is assessed using event-level recall, PR-AUC, and calibration metrics rather than accuracy.
+
+- **Interpretability and transparency**  
+  Model outputs are explained using SHAP-style feature attribution and structured ablation analysis.
 
 ---
 
 ## Data
 
-This study uses the **JST Macrohistory Database (Release 6)** and its associated crisis chronology.
+This study uses the **JST Macrohistory Database (Release 6)** and its associated financial crisis chronology.
 
-- Countries: **United States, United Kingdom**
-- Frequency: **Annual**
-- Period: **1870–2020** (subject to variable availability)
-- Target: **Forward-looking crisis indicator** (crisis occurs within the next *H* years)
+- **Countries:** United States, United Kingdom  
+- **Frequency:** Annual  
+- **Period:** 1870–2020 (subject to variable availability)  
+- **Target:** Forward-looking systemic banking crisis indicator  
 
-> Data access and documentation: JST Macrohistory Database (Release 6) via macrohistory.net.
+The crisis labels are based on the JST systemic banking crisis chronology, which is widely used in the financial stability literature.
+
+> Data access and documentation:  
+> https://www.macrohistory.net/database/
 
 ---
 
 ## Method Summary
 
 ### 1) Target Construction (Forecast Horizon)
-The label is forward-looking: a year is positive if a crisis occurs within the next *H* years.
-This ensures warnings precede crisis onset rather than simply identifying crisis years.
+The target variable is forward-looking: a year is labelled positive if a crisis occurs within the next *H* years (typically *H = 2*).  
+This ensures the model generates **early warnings**, not contemporaneous crisis detection.
 
-### 2) Cleaning and Transformations (Leakage-safe)
-Long-run historical data contains missingness, especially in early periods. The final pipeline uses:
-- **Forward-fill within country with a short limit**
-- **Training-only median imputation** for remaining missing values
-- **Missingness flags** to preserve information in data availability patterns  
-Backward filling was tested early on but excluded due to look-ahead bias (data leakage).
+### 2) Cleaning and Transformations (Leakage-Safe)
+Historical macro-financial data contains substantial missingness, especially in early periods. The pipeline uses:
+- forward-fill within country (short, capped window),
+- **training-only median imputation** for remaining gaps,
+- explicit **missingness indicators** to preserve information in data availability patterns.
 
-Nominal variables are converted into real terms where required, and features are expressed as:
-- growth rates
-- ratios
-- spreads
-- historically grounded deviations
+Backward filling was explicitly avoided due to look-ahead bias.
 
 ### 3) Standardisation
-Continuous features are z-score standardised using **training-only** parameters to avoid look-ahead bias.
-A consistent preprocessing pipeline is applied across model classes for comparability.
+Continuous features are z-score standardised using **training-set statistics only**.  
+The same preprocessing logic is applied across models to ensure comparability.
 
 ### 4) Modelling
 Models explored include:
-- **Econometric benchmark:** Logistic Regression (baseline and final selection)
-- **Non-linear ML models:** Random Forest, Gradient Boosting, Neural Network, SVM (tested as complements)
+- **Logistic Regression** (econometric benchmark and final reference model),
+- Random Forest,
+- Gradient Boosting,
+- Support Vector Machine,
+- Neural Network (MLP).
 
-Final selection prioritised out-of-sample stability under rolling-origin validation and policy-style alerting.
+Final emphasis is placed on **out-of-sample stability, interpretability, and policy defensibility**, rather than marginal performance gains.
 
 ### 5) Class Imbalance Handling
-Crises are rare, so evaluation focuses on policy-relevant performance rather than raw accuracy.
-The system uses:
-- class-aware training strategies (where applicable)
-- thresholding via **alert budget**
-- event-level evaluation
+Systemic crises are rare. The framework therefore focuses on:
+- class-aware training (where applicable),
+- probability thresholding via alert budgets,
+- **event-level evaluation** rather than point-wise accuracy.
 
 ### 6) Evaluation
-Performance is reported using complementary metrics:
-- **Event-level recall**: whether each crisis has at least one pre-crisis alert
-- **PR-AUC**: ranking quality under class imbalance
-- **Brier score**: probability calibration quality
-- **Alert-rate behaviour** under fixed alert budgets
+Reported metrics include:
+- **Event-level recall** (whether each crisis is preceded by at least one alert),
+- **PR-AUC** (ranking quality under imbalance),
+- **Brier score** (probability calibration),
+- realised alert rates under fixed budgets.
 
-### 7) Interpretability
-SHAP-style explanations are used to quantify feature contributions:
-- global importance (mean absolute SHAP)
-
-An **ablation study** tests whether performance depends on specific feature families (macro vs behavioural) and whether missingness indicators materially contribute.
+### 7) Interpretability and Robustness
+- **SHAP explanations** are used to identify global and local drivers of predicted risk.
+- An **ablation study** evaluates the contribution of:
+  - macro-financial indicators,
+  - behavioural / market-based proxies,
+  - explicit missingness indicators.
 
 ---
 
+## Repository Structure
 
