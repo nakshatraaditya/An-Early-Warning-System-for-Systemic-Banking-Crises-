@@ -1,0 +1,20 @@
+# Ignore raw and processed data
+data/raw/
+data/processed/
+*.xlsx
+*.csv
+*.parquet
+
+# Python junk
+__pycache__/
+.venv/
+.ipynb_checkpoints/
+
+# Models
+models/
+*.pkl
+*.joblib
+
+# OS
+.DS_Store
+
