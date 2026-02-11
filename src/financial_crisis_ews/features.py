@@ -45,7 +45,8 @@ def engineer_macro_features(df_raw: pd.DataFrame) -> tuple[pd.DataFrame, list[st
 
     # Money expansion
     df["money_gdp"] = df["money"].astype(float) / (df["gdp"].astype(float) + 1e-9)
-    df["money_expansion"] = df.groupby("country")["money_gdp"].pct_change()
+    
+    df["money_expansion"] = df.groupby("country")["money_gdp"].pct_change(fill_method=None)
 
     # Current account / GDP
     df["ca_gdp"] = df["ca"].astype(float) / (df["gdp"].astype(float) + 1e-9)
