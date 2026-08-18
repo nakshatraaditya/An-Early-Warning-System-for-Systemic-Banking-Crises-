@@ -102,31 +102,99 @@ Reported metrics include:
 
 ---
 
+---
+
 ## Repository Structure
-├── app 
 
-   └── 240377687_Nakshatra_Aditya(Jupyter).ipynb
- 
-   └──app.py # Streamlit dashboard (interactive EWS)
-
-├── requirements.txt 
-
-|── README.md
+```
+.
+├── app/
+│   ├── streamlit_app.py                  # Interactive EWS dashboard
+│   └── 240377687_Nakshatra_aditya(Jupyter).ipynb   # Dissertation notebook
+├── src/financial_crisis_ews/
+│   ├── io.py                             # Excel loading + column checks
+│   ├── features.py                       # Leakage-safe feature engineering
+│   ├── evaluation.py                     # Rare-event metrics
+│   └── train.py                          # Rolling-origin training CLI
+├── tests/
+├── pyproject.toml
+└── README.md
+```
 
 ---
 
-## Running the Dashboard Locally
-
-The project includes an interactive **Streamlit dashboard** for exploring crisis risk, alerts, robustness checks, ablation results, and SHAP explanations.
+## Installation
 
 ### Prerequisites
-- **Python 3.9+**
-- Git
-- JST Macrohistory Database (Release 6)
+- Python 3.10+
+- The JST Macrohistory Database (Release 6), available from
+  [macrohistory.net](https://www.macrohistory.net/database/). It is not
+  redistributed here.
 
-### Setup Instructions
+### Setup
 
-1. **Clone the repository**
 ```bash
-git clone https://github.com/your-username/-An-Early-Warning-System-for-Systemic-Banking-Crises-.git
-cd -An-Early-Warning-System-for-Systemic-Banking-Crises-
+git clone https://github.com/nakshatraaditya/An-Early-Warning-System-for-Systemic-Banking-Crises-.git
+cd An-Early-Warning-System-for-Systemic-Banking-Crises-
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+---
+
+## Running the Model
+
+Train and evaluate across rolling origins, writing per-fold metrics to CSV:
+
+```bash
+ews-train --raw-file path/to/JSTdatasetR6.xlsx
+```
+
+The module form is equivalent:
+
+```bash
+python -m financial_crisis_ews.train --raw-file path/to/JSTdatasetR6.xlsx
+```
+
+### Options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--raw-file` | required | Path to `JSTdatasetR6.xlsx` |
+| `--target-col` | `crisisJST` | Crisis indicator column |
+| `--budget` | `0.20` | Alert budget (share of years flagged) |
+| `--train-end` | `1950` | Cut-off year for imputation medians |
+| `--horizon` | `2` | Warning horizon in years |
+| `--step-years` | `10` | Rolling window step |
+| `--min-train-years` | `30` | Minimum training span |
+| `--reports-dir` | `reports` | Output directory |
+
+Results are written to `<reports-dir>/rolling_metrics.csv`, one row per fold.
+
+---
+
+## Running the Dashboard
+
+```bash
+streamlit run app/streamlit_app.py
+```
+
+Place `JSTdatasetR6.xlsx` in `app/` and the dashboard picks it up
+automatically; otherwise it prompts you to upload the file.
+
+---
+
+## Tests
+
+```bash
+pytest
+```
+
+```bash
+ruff check src tests app
+```
+
+The suite covers feature engineering, the rare-event metrics, and the rolling
+training loop, including a check that no fold trains on data from its own test
+window.

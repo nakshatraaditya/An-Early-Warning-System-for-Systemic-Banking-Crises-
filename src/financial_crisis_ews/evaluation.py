@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
 from sklearn.metrics import (
-    average_precision_score, brier_score_loss,
-    precision_score, recall_score, f1_score
+    average_precision_score,
+    brier_score_loss,
+    f1_score,
+    precision_score,
+    recall_score,
 )
+
 
 def budget_threshold_topk(probs: np.ndarray, budget: float) -> float:
     if len(probs) == 0:

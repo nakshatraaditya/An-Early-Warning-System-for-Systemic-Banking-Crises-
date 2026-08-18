@@ -1,14 +1,13 @@
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
-from typing import Optional, List, Tuple, Dict
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
-
 
 try:
     import altair as alt
@@ -24,22 +23,21 @@ except Exception:
     SHAP_OK = False
 
 # ML
-from sklearn.preprocessing import StandardScaler
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
-    roc_auc_score,
     average_precision_score,
-    precision_score,
-    recall_score,
-    f1_score,
     brier_score_loss,
     confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
 )
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.svm import SVC
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.neural_network import MLPClassifier
-
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 
 # =============================================================================
 # STREAMLIT CONFIG
@@ -114,7 +112,7 @@ def require_columns(df: pd.DataFrame, cols, where: str):
             f"Available columns (first 40): {list(df.columns)[:40]}"
         )
 
-def detect_equity_column(df: pd.DataFrame) -> Optional[str]:
+def detect_equity_column(df: pd.DataFrame) -> str | None:
     candidates = ["eq_tr", "eq_tr_interp", "eq_tr_total", "eq_tr_ann"]
     for c in candidates:
         if c in df.columns and df[c].notna().any():
@@ -126,7 +124,7 @@ def budget_threshold_topk(probs: np.ndarray, budget: float) -> float:
         return 1.0
     return float(np.quantile(probs, 1.0 - budget))
 
-def crisis_episodes(crisis_years: List[int]) -> List[Tuple[int, int]]:
+def crisis_episodes(crisis_years: list[int]) -> list[tuple[int, int]]:
     if not crisis_years:
         return []
     ys = sorted(set(crisis_years))
@@ -375,7 +373,7 @@ def build_feature_frame(df_raw: pd.DataFrame):
     df = df[keep].replace([np.inf, -np.inf], np.nan).copy()
     return df, base_features, macro, behav
 
-def apply_causal_cleaning(df: pd.DataFrame, base_features: List[str], train_end_year: int):
+def apply_causal_cleaning(df: pd.DataFrame, base_features: list[str], train_end_year: int):
     df = df.copy()
     df = df[~df["year"].between(1914, 1918)]
     df = df[~df["year"].between(1939, 1945)]
@@ -442,7 +440,7 @@ def build_model_set():
 # =============================================================================
 def train_eval_budgeted_fixed_model(
     df_target: pd.DataFrame,
-    base_features: List[str],
+    base_features: list[str],
     budget: float,
     model_name: str,
 ):
@@ -505,7 +503,7 @@ def train_eval_budgeted_fixed_model(
         "test_alerts": test_alerts,
     }
 
-def validation_model_comparison(df_target: pd.DataFrame, base_features: List[str], budget: float):
+def validation_model_comparison(df_target: pd.DataFrame, base_features: list[str], budget: float):
     missing_features = [f"{f}_missing" for f in base_features]
 
     train_df = df_target[df_target["year"] < TRAIN_END].copy()
@@ -545,7 +543,7 @@ def validation_model_comparison(df_target: pd.DataFrame, base_features: List[str
 # =============================================================================
 # ROBUSTNESS 
 # =============================================================================
-def robustness_horizon(df_clean: pd.DataFrame, base_features: List[str], budget: float, model_name: str):
+def robustness_horizon(df_clean: pd.DataFrame, base_features: list[str], budget: float, model_name: str):
     rows = []
     for h in HORIZON_GRID:
         df_t = create_target(df_clean, horizon=h).reset_index(drop=True)
@@ -555,7 +553,7 @@ def robustness_horizon(df_clean: pd.DataFrame, base_features: List[str], budget:
         rows.append(r)
     return pd.DataFrame(rows)
 
-def robustness_budget(df_target: pd.DataFrame, base_features: List[str], horizon: int, model_name: str):
+def robustness_budget(df_target: pd.DataFrame, base_features: list[str], horizon: int, model_name: str):
     rows = []
     for b in BUDGET_GRID:
         out = train_eval_budgeted_fixed_model(df_target, base_features=base_features, budget=b, model_name=model_name)
@@ -598,7 +596,6 @@ def run_ablation(df_target, macro_features, behav_features, budget=0.20):
             Xte = np.hstack([Xte, test_df[miss].values])
 
         ytr = train_df["target"].values
-        yva = val_df["target"].values
         yte = test_df["target"].values
 
         model = LogisticRegression(max_iter=8000, class_weight="balanced")
@@ -634,7 +631,7 @@ def shap_supported(model_name: str) -> bool:
 @st.cache_data(show_spinner=False)
 def compute_shap_artifacts(
     df_target: pd.DataFrame,
-    base_features: List[str],
+    base_features: list[str],
     model_name: str,
     budget: float,
     sample_n: int = 250,
@@ -732,8 +729,30 @@ def build_main_bundle(xlsx_path: str, horizon: int, budget: float, model_name: s
 st.title("📉 Financial Crisis Early Warning System (EWS)")
 st.caption("A policy-oriented early warning system that identifies rising systemic risk using macro-financial and behavioural indicators.")
 
-if not JST_XLSX.exists():
-    st.error(f"Missing dataset file: {JST_XLSX.name}. Put it next to app.py in your Streamlit repo.")
+def resolve_dataset() -> str | None:
+    """Use the bundled JST file if present, otherwise accept an upload.
+
+    The JST Macrohistory database is not redistributed with this repository.
+    """
+    if JST_XLSX.exists():
+        return str(JST_XLSX)
+
+    st.info(
+        f"`{JST_XLSX.name}` is not bundled with this repository. "
+        "Download Release 6 from [macrohistory.net](https://www.macrohistory.net/database/) "
+        "and upload it below, or place it in the `app/` directory."
+    )
+    uploaded = st.file_uploader("Upload JSTdatasetR6.xlsx", type=["xlsx"])
+    if uploaded is None:
+        return None
+
+    cached = Path(tempfile.gettempdir()) / JST_XLSX.name
+    cached.write_bytes(uploaded.getbuffer())
+    return str(cached)
+
+
+DATASET_PATH = resolve_dataset()
+if DATASET_PATH is None:
     st.stop()
 
 # Keep model fixed and simple (free-tier safe)
@@ -756,7 +775,7 @@ with st.sidebar:
         st.rerun()
 
 with st.spinner("Building core model bundle (cached after first run)..."):
-    bundle = build_main_bundle(str(JST_XLSX), horizon=horizon, budget=budget, model_name=DEFAULT_MODEL)
+    bundle = build_main_bundle(DATASET_PATH, horizon=horizon, budget=budget, model_name=DEFAULT_MODEL)
 
 df_clean = bundle["df_clean"]
 df_target = bundle["df_target"]

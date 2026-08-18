@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def load_data(path: str) -> pd.DataFrame:
     """Load JST Excel file."""
     df = pd.read_excel(path)

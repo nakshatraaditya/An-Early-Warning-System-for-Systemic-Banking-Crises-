@@ -6,7 +6,19 @@ build-backend = "setuptools.build_meta"
 name = "financial-crisis-ews"
 version = "0.1.0"
 description = "Financial Crisis Early Warning System (UK & US)"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.23",
+    "pandas>=1.5",
+    "scipy>=1.9",
+    "scikit-learn>=1.2",
+    "matplotlib>=3.6",
+    "altair>=5.0",
+    "shap>=0.41",
+    "streamlit>=1.29",
+    "openpyxl>=3.1",
+    "tqdm>=4.64",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -16,3 +28,24 @@ where = ["src"]
 
 
 
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff",
+]
+
+[project.scripts]
+ews-train = "financial_crisis_ews.train:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+# The dissertation notebook is a submitted artifact, not maintained source.
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+# BLE001: optional-dependency guards and SHAP degrade gracefully by design.
+ignore = ["E501", "BLE001"]
