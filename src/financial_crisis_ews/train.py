@@ -5,17 +5,17 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from financial_crisis_ews.io import load_data, require_columns
-from financial_crisis_ews.features import (
-    build_feature_frame, apply_causal_cleaning, create_target
-)
 from financial_crisis_ews.evaluation import (
-    budget_threshold_topk, event_level_recall, compute_prob_metrics
+    budget_threshold_topk,
+    compute_prob_metrics,
+    event_level_recall,
 )
+from financial_crisis_ews.features import apply_causal_cleaning, build_feature_frame, create_target
+from financial_crisis_ews.io import load_data, require_columns
+
 
 def rolling_train_eval(
     df_target: pd.DataFrame,
@@ -29,7 +29,6 @@ def rolling_train_eval(
     years = sorted(df_target["year"].unique())
 
     missing_features = [f"{f}_missing" for f in base_features if f"{f}_missing" in df_target.columns]
-    all_features = base_features + missing_features
 
     rows = []
 
@@ -76,8 +75,8 @@ def rolling_train_eval(
         rows.append({
             "cutoff_year": train_end_year,
             "test_end_year": int(test_end_year),
-            "n_train": int(len(train_df)),
-            "n_test": int(len(test_df)),
+            "n_train": len(train_df),
+            "n_test": len(test_df),
             "base_rate": base_rate,
             "pr_auc": prob_metrics["pr_auc"] if prob_metrics["pr_auc"] == prob_metrics["pr_auc"] else -0.0,  # keep your csv look
             "brier": prob_metrics["brier"] if prob_metrics["brier"] == prob_metrics["brier"] else np.nan,
@@ -97,7 +96,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--raw-file", required=True, help="Path to JSTdatasetR6.xlsx")
     p.add_argument("--target-col", default="crisisJST", help="Crisis column name (e.g., crisisJST)")
-    p.add_argument("--budget", type=float, default=0.20, help="Alert budget (e.g., 0.20 = 20%)")
+    p.add_argument("--budget", type=float, default=0.20, help="Alert budget (e.g., 0.20 = 20%%)")
     p.add_argument("--train-end", type=int, default=1950, help="Train-end year used for causal cleaning medians")
     p.add_argument("--horizon", type=int, default=2, help="Warning horizon (years ahead)")
     p.add_argument("--step-years", type=int, default=10, help="Rolling window step size")
